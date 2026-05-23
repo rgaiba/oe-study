@@ -15,7 +15,7 @@ const COLOR = {
 const STREAM_LABEL = {
   AI:    'OpenEvidence (A)',
   Di:    'Initial decision (Di)',
-  Final: 'Final answer (Df / F)',
+  Final: 'Final answer (Df)',
 }
 
 const pct = (v) => (v === null || v === undefined || Number.isNaN(v) ? 'n/a' : `${(v * 100).toFixed(1)}%`)
@@ -245,9 +245,9 @@ function LiftBars({ rows }) {
     aiDeclined: '#845200',
   }
   const SUB_LABEL = {
-    overall:    'All rows',
-    aiUsed:     'AI used (Df vs Di)',
-    aiDeclined: 'AI declined (F vs Di)',
+    overall:    'All rows (Df − Di)',
+    aiUsed:     'AI consulted (Df − Di)',
+    aiDeclined: 'AI declined (Df − Di)',
   }
 
   return (

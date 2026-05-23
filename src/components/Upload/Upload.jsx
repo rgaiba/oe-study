@@ -159,25 +159,25 @@ export default function Upload() {
           <p>
             All {REQUIRED_COLUMNS.length} columns are required, in any order. Answer fields
             (<code className="formula">Di</code>, <code className="formula">A</code>,{' '}
-            <code className="formula">R</code>, and whichever of{' '}
-            <code className="formula">Df</code> / <code className="formula">F</code> is
-            active for the row) must be a single character in <strong>A–E</strong>.
+            <code className="formula">Df</code>, <code className="formula">R</code>) must be
+            a single character in <strong>A–E</strong>. <code className="formula">Df</code>{' '}
+            is populated for every row — the final answer regardless of whether AI was
+            consulted, with <code className="formula">oe_used</code> as the flag.
           </p>
           <dl className="schema-list">
-            <dt>physician_id</dt><dd>P001 – P060</dd>
+            <dt>physician_id</dt><dd>e.g. P001 – P060 (study team)</dd>
             <dt>physician_experience</dt><dd>Fellow | Attending_lt10 | Attending_gte10</dd>
-            <dt>question_id</dt><dd>Q001 – Q050</dd>
+            <dt>question_id</dt><dd>e.g. Q001 – Q050 (study team)</dd>
             <dt>question_uncertainty</dt><dd>Guideline-Direct | Evidence-Equipoise | Extrapolation-Required</dd>
-            <dt>question_order</dt><dd>1 – 50</dd>
-            <dt>Di, A, R</dt><dd>One of A | B | C | D | E (always populated)</dd>
+            <dt>Di</dt><dd>A | B | C | D | E — initial decision (OE)</dd>
+            <dt>A</dt><dd>A | B | C | D | E — OE's recommendation</dd>
             <dt>oe_used</dt><dd>Yes | No</dd>
-            <dt>Df</dt><dd>A | B | C | D | E when oe_used = Yes; empty otherwise</dd>
-            <dt>F</dt><dd>A | B | C | D | E when oe_used = No; empty otherwise</dd>
+            <dt>Df</dt><dd>A | B | C | D | E — final answer for every row (OE)</dd>
+            <dt>R</dt><dd>A | B | C | D | E — reference standard (study team)</dd>
             <dt>ts_Di_lock</dt><dd>ISO8601 UTC timestamp</dd>
             <dt>ts_oe_start</dt><dd>ISO8601 UTC; empty when oe_used = No</dd>
-            <dt>ts_Df_lock</dt><dd>ISO8601 UTC; empty when oe_used = No</dd>
-            <dt>ts_F_lock</dt><dd>ISO8601 UTC; empty when oe_used = Yes</dd>
-            <dt>oe_time_seconds</dt><dd>Integer; empty when oe_used = No</dd>
+            <dt>ts_Df_lock</dt><dd>ISO8601 UTC</dd>
+            <dt>oe_time_seconds</dt><dd>Integer seconds; empty when oe_used = No</dd>
           </dl>
         </aside>
       </div>

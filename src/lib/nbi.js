@@ -124,26 +124,32 @@ export function filterRows(rows, selection) {
   })
 }
 
-/** Accuracy summary over a row collection, separating the three streams. */
+/**
+ * Accuracy summary over a row collection. Schema v2: Df is the final answer
+ * for every row, so Df accuracy is computed on all rows. The "AI consulted"
+ * vs "AI declined" split is reported separately for the lift analysis.
+ */
 export function accuracySummary(rows) {
-  let nAll = 0, diCorrect = 0
-  let nOe = 0, dfCorrect = 0
-  let nNoOe = 0, fCorrect = 0
+  let nAll = 0, diCorrect = 0, dfCorrect = 0
+  let nUsed = 0, dfUsedCorrect = 0
+  let nNot = 0, dfNotCorrect = 0
   for (const r of rows) {
     nAll += 1
     if (r.Di === r.R) diCorrect += 1
+    if (r.Df === r.R) dfCorrect += 1
     if (r.oe_used === 'Yes') {
-      nOe += 1
-      if (r.Df === r.R) dfCorrect += 1
+      nUsed += 1
+      if (r.Df === r.R) dfUsedCorrect += 1
     } else if (r.oe_used === 'No') {
-      nNoOe += 1
-      if (r.F === r.R) fCorrect += 1
+      nNot += 1
+      if (r.Df === r.R) dfNotCorrect += 1
     }
   }
   return {
-    Di: { n: nAll, k: diCorrect, pct: nAll > 0 ? (diCorrect / nAll) * 100 : null },
-    Df: { n: nOe,  k: dfCorrect, pct: nOe  > 0 ? (dfCorrect / nOe)  * 100 : null },
-    F:  { n: nNoOe, k: fCorrect, pct: nNoOe > 0 ? (fCorrect / nNoOe) * 100 : null },
+    Di:         { n: nAll, k: diCorrect,    pct: nAll  > 0 ? (diCorrect    / nAll)  * 100 : null },
+    Df:         { n: nAll, k: dfCorrect,    pct: nAll  > 0 ? (dfCorrect    / nAll)  * 100 : null },
+    DfAiUsed:   { n: nUsed, k: dfUsedCorrect, pct: nUsed > 0 ? (dfUsedCorrect / nUsed) * 100 : null },
+    DfAiDecl:   { n: nNot, k: dfNotCorrect,  pct: nNot  > 0 ? (dfNotCorrect  / nNot)  * 100 : null },
   }
 }
 
@@ -282,10 +288,11 @@ export function bootstrapAucCI(rows, getPred, B = 500, seed = 20260523) {
   }
 }
 
-/** Row-level getters for the three prediction streams. */
+/** Row-level getters for the three prediction streams.
+ *  Schema v2: Df is the final answer for every row, regardless of oe_used. */
 export const STREAM = {
   Di:    r => r.Di,
-  Final: r => (r.oe_used === 'Yes' ? r.Df : r.F),
+  Final: r => r.Df,
   A:     r => r.A,
 }
 
@@ -440,7 +447,7 @@ function deltaAccuracy(rows) {
   let n = 0, sum = 0, sumSq = 0
   for (const r of rows) {
     const di = r.Di === r.R ? 1 : 0
-    const final = (r.oe_used === 'Yes' ? r.Df : r.F) === r.R ? 1 : 0
+    const final = r.Df === r.R ? 1 : 0
     const delta = final - di
     n += 1
     sum += delta

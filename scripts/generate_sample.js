@@ -79,7 +79,12 @@ function questions() {
     if (i <= 17) unc = 'Guideline-Direct'
     else if (i <= 34) unc = 'Evidence-Equipoise'
     else unc = 'Extrapolation-Required'
-    out.push({ id, uncertainty: unc, R: pick(ANSWERS) })
+    const R = pick(ANSWERS)
+    // OE's recommendation A is fixed per question (deterministic per question
+    // in real OE, so the synthetic data should reflect that). Probability that
+    // A matches R is 0.70; otherwise uniform over the four wrong options.
+    const A = rand() < 0.70 ? R : pick(ANSWERS.filter(a => a !== R))
+    out.push({ id, uncertainty: unc, R, A })
   }
   return out
 }
@@ -120,16 +125,6 @@ function sampleFromDist(dist) {
   return Object.keys(dist).pop()
 }
 
-// Per-question A distribution: R with 0.70 mass, others 0.075 each.
-function aDistFor(R) {
-  const dist = {}
-  const others = ANSWERS.filter(a => a !== R)
-  dist[R] = 0.70
-  const remaining = 1 - 0.70
-  for (const o of others) dist[o] = remaining / others.length
-  return dist
-}
-
 // Fisher-Yates shuffle for per-physician question order.
 function shuffled(arr) {
   const out = arr.slice()
@@ -149,15 +144,13 @@ function isoUtc(d) {
 function generate() {
   const phys = physicians()
   const qs = questions()
-  const qById = Object.fromEntries(qs.map(q => [q.id, q]))
-  // Precompute distributions per question.
   const diDist = Object.fromEntries(qs.map(q => [q.id, diDistFor(q.R)]))
-  const aDist  = Object.fromEntries(qs.map(q => [q.id, aDistFor(q.R)]))
 
+  // Schema v2: 13 columns. F and ts_F_lock dropped. Df populated on every row.
   const HEADERS = [
-    'physician_id','physician_experience','question_id','question_uncertainty','question_order',
-    'Di','A','oe_used','Df','F','R',
-    'ts_Di_lock','ts_oe_start','ts_Df_lock','ts_F_lock','oe_time_seconds'
+    'physician_id','physician_experience','question_id','question_uncertainty',
+    'Di','A','oe_used','Df','R',
+    'ts_Di_lock','ts_oe_start','ts_Df_lock','oe_time_seconds'
   ]
   const lines = [HEADERS.join(',')]
 
@@ -167,23 +160,19 @@ function generate() {
   for (let pi = 0; pi < phys.length; pi++) {
     const p = phys[pi]
     const order = shuffled(qs)
-    // Each physician starts their session a few hours apart from the next.
     let t = new Date(baseDate.getTime() + pi * 3 * 60 * 60 * 1000)
 
     for (let oi = 0; oi < order.length; oi++) {
       const q = order[oi]
       const Di = sampleFromDist(diDist[q.id])
-      const A = sampleFromDist(aDist[q.id])
       const useOE = rand() < optInProb(p.experience, q.uncertainty)
 
       // Timing.
-      const tsDi = new Date(t)
-      // Initial-decision think time 15–45s.
       t = new Date(t.getTime() + (15 + Math.round(rand() * 30)) * 1000)
       const tsDiLock = new Date(t)
 
-      let tsOeStart = null, tsDfLock = null, tsFLock = null, oeSeconds = null
-      let Df = '', F = ''
+      let tsOeStart = null, tsDfLock = null, oeSeconds = null
+      let Df = ''
 
       if (useOE) {
         tsOeStart = new Date(t)
@@ -199,11 +188,11 @@ function generate() {
           Df = rand() < 0.85 ? Di : otherThan(Di)
         }
       } else {
-        // Quick post-Di confirmation think 5–25s.
+        // No AI consultation. Physician still commits a final answer; usually
+        // it mirrors Di — 92% Df=Di, 8% Df flips to a random other answer.
         t = new Date(t.getTime() + (5 + Math.round(rand() * 20)) * 1000)
-        tsFLock = new Date(t)
-        // Without AI, finals usually mirror Di — 92% F=Di, 8% F=random other.
-        F = rand() < 0.92 ? Di : otherThan(Di)
+        tsDfLock = new Date(t)
+        Df = rand() < 0.92 ? Di : otherThan(Di)
       }
 
       // Small gap before next question.
@@ -214,17 +203,14 @@ function generate() {
         p.experience,
         q.id,
         q.uncertainty,
-        oi + 1,
         Di,
-        A,
+        q.A,
         useOE ? 'Yes' : 'No',
         Df,
-        F,
         q.R,
         isoUtc(tsDiLock),
         tsOeStart ? isoUtc(tsOeStart) : '',
-        tsDfLock ? isoUtc(tsDfLock) : '',
-        tsFLock ? isoUtc(tsFLock) : '',
+        isoUtc(tsDfLock),
         oeSeconds === null ? '' : oeSeconds,
       ].join(','))
     }

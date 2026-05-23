@@ -3,6 +3,12 @@
 //  Hand-rolled parser (no papaparse dependency to satisfy the "zero runtime
 //  deps beyond React" rule). Handles quoted fields, embedded commas, and CRLF
 //  line endings, which is the only RFC 4180 surface we need for this study.
+//
+//  Schema v2 (post-Google-Sheet design): 13 required columns. The F column
+//  and ts_F_lock are dropped — OE now records Df as the final answer for
+//  every row, and oe_used flags whether the physician actually consulted
+//  the AI. question_order is no longer required (it's derivable from
+//  ts_Di_lock if a consumer wants it).
 // =============================================================================
 
 export const REQUIRED_COLUMNS = [
@@ -10,17 +16,14 @@ export const REQUIRED_COLUMNS = [
   'physician_experience',
   'question_id',
   'question_uncertainty',
-  'question_order',
   'Di',
   'A',
   'oe_used',
   'Df',
-  'F',
   'R',
   'ts_Di_lock',
   'ts_oe_start',
   'ts_Df_lock',
-  'ts_F_lock',
   'oe_time_seconds',
 ]
 
@@ -61,7 +64,6 @@ function tokenizeRow(line) {
  * Returns { headers, rows }. Skips fully blank lines.
  */
 export function parseCsv(text) {
-  // Normalize line endings; split; drop trailing blank lines.
   const lines = text.replace(/\r\n?/g, '\n').split('\n').filter(l => l.length > 0)
   if (lines.length === 0) return { headers: [], rows: [] }
 
@@ -79,15 +81,18 @@ export function parseCsv(text) {
 }
 
 /**
- * Validate parsed rows against the study schema.
+ * Validate parsed rows against the v2 schema.
  * Returns { ok, rows, errors }. errors is an array of {row, message} where
  * `row` is the 1-indexed CSV row (header is row 1, first data row is row 2).
+ *
+ * Df is required (A–E) on every row — OE captures the final answer
+ * regardless of whether AI was consulted. ts_oe_start and oe_time_seconds
+ * are required to be empty when oe_used=No, populated otherwise.
  */
 export function validateRows(parsed) {
   const errors = []
   const { headers, rows } = parsed
 
-  // Header presence check.
   const missing = REQUIRED_COLUMNS.filter(c => !headers.includes(c))
   if (missing.length) {
     errors.push({ row: 1, message: `Missing required column(s): ${missing.join(', ')}` })
@@ -97,7 +102,7 @@ export function validateRows(parsed) {
   const out = []
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i]
-    const csvRow = i + 2 // header is row 1
+    const csvRow = i + 2
     const e = []
 
     if (!EXPERIENCE_LEVELS.includes(r.physician_experience)) {
@@ -111,43 +116,38 @@ export function validateRows(parsed) {
     }
     if (!VALID_ANSWERS.has(r.Di)) e.push(`Di must be A-E (got "${r.Di}")`)
     if (!VALID_ANSWERS.has(r.A))  e.push(`A must be A-E (got "${r.A}")`)
+    if (!VALID_ANSWERS.has(r.Df)) e.push(`Df must be A-E (got "${r.Df}")`)
     if (!VALID_ANSWERS.has(r.R))  e.push(`R must be A-E (got "${r.R}")`)
 
+    // Timestamp / duration emptiness rules track oe_used.
     if (r.oe_used === 'Yes') {
-      if (!VALID_ANSWERS.has(r.Df)) e.push(`Df must be A-E when oe_used=Yes (got "${r.Df}")`)
-      if (r.F !== '' && r.F !== undefined && r.F !== null) {
-        e.push(`F must be empty when oe_used=Yes (got "${r.F}")`)
+      if (!r.ts_oe_start) e.push(`ts_oe_start must be populated when oe_used=Yes`)
+      if (r.oe_time_seconds === '' || r.oe_time_seconds === undefined) {
+        e.push(`oe_time_seconds must be populated when oe_used=Yes`)
       }
     } else if (r.oe_used === 'No') {
-      if (!VALID_ANSWERS.has(r.F)) e.push(`F must be A-E when oe_used=No (got "${r.F}")`)
-      if (r.Df !== '' && r.Df !== undefined && r.Df !== null) {
-        e.push(`Df must be empty when oe_used=No (got "${r.Df}")`)
+      if (r.ts_oe_start && r.ts_oe_start !== '') {
+        e.push(`ts_oe_start must be empty when oe_used=No (got "${r.ts_oe_start}")`)
       }
-    }
-
-    const qOrder = Number(r.question_order)
-    if (!Number.isFinite(qOrder) || qOrder < 1) {
-      e.push(`question_order must be a positive integer (got "${r.question_order}")`)
+      if (r.oe_time_seconds && r.oe_time_seconds !== '') {
+        e.push(`oe_time_seconds must be empty when oe_used=No (got "${r.oe_time_seconds}")`)
+      }
     }
 
     if (e.length === 0) {
-      // Coerce numeric/typed fields once validated.
       out.push({
         physician_id: r.physician_id,
         physician_experience: r.physician_experience,
         question_id: r.question_id,
         question_uncertainty: r.question_uncertainty,
-        question_order: qOrder,
         Di: r.Di,
         A: r.A,
         oe_used: r.oe_used,
-        Df: r.Df || '',
-        F: r.F || '',
+        Df: r.Df,
         R: r.R,
         ts_Di_lock: r.ts_Di_lock || '',
         ts_oe_start: r.ts_oe_start || '',
         ts_Df_lock: r.ts_Df_lock || '',
-        ts_F_lock: r.ts_F_lock || '',
         oe_time_seconds: r.oe_time_seconds === '' ? null : Number(r.oe_time_seconds),
       })
     } else {
@@ -163,11 +163,11 @@ export function templateCsv() {
   const header = REQUIRED_COLUMNS.join(',')
   const examples = [
     // Fellow, Guideline-Direct, used OE, initially wrong (Di=B), AI correct (A=C), changed to C → B
-    'P001,Fellow,Q001,Guideline-Direct,1,B,C,Yes,C,,C,2026-05-23T14:00:00Z,2026-05-23T14:00:12Z,2026-05-23T14:01:38Z,,86',
-    // Attending_lt10, Evidence-Equipoise, declined OE, answered B with R=A (F wrong)
-    'P021,Attending_lt10,Q018,Evidence-Equipoise,2,B,A,No,,B,A,2026-05-23T14:05:00Z,,,2026-05-23T14:05:34Z,',
+    'P001,Fellow,Q001,Guideline-Direct,B,C,Yes,C,C,2026-05-23T14:00:00Z,2026-05-23T14:00:12Z,2026-05-23T14:01:38Z,86',
+    // Attending_lt10, Evidence-Equipoise, declined OE, Df=B stays from Di=B (R=A, so final is wrong)
+    'P021,Attending_lt10,Q018,Evidence-Equipoise,B,A,No,B,A,2026-05-23T14:05:00Z,,2026-05-23T14:05:34Z,',
     // Attending_gte10, Extrapolation-Required, used OE, initially right (Di=R=D), stayed D → AR
-    'P041,Attending_gte10,Q040,Extrapolation-Required,3,D,D,Yes,D,,D,2026-05-23T14:10:00Z,2026-05-23T14:10:15Z,2026-05-23T14:12:02Z,,107',
+    'P041,Attending_gte10,Q040,Extrapolation-Required,D,D,Yes,D,D,2026-05-23T14:10:00Z,2026-05-23T14:10:15Z,2026-05-23T14:12:02Z,107',
   ]
   return [header, ...examples].join('\n') + '\n'
 }

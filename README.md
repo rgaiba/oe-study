@@ -44,19 +44,27 @@ voluntary consultation is adjudicated. Denominator for all metrics is
 | EIR | `H / (H + AR) × 100` | Wilson 95% |
 | DIR | `(B + H) / N_oe_used × 100` | Wilson 95% |
 
-## CSV schema
+## CSV schema (v2)
 
-All 16 columns required (any order). Answer fields (`Di`, `A`, `R`, and whichever
-of `Df`/`F` is active) must be a single character `A`–`E`.
+All 13 columns required (any order). Answer fields (`Di`, `A`, `Df`, `R`) must
+be a single character `A`–`E` and populated on every row. `Df` is the final
+answer regardless of whether the AI was consulted — `oe_used` flags whether
+consultation actually happened.
 
 ```
-physician_id, physician_experience, question_id, question_uncertainty, question_order,
-Di, A, oe_used, Df, F, R,
-ts_Di_lock, ts_oe_start, ts_Df_lock, ts_F_lock, oe_time_seconds
+physician_id, physician_experience, question_id, question_uncertainty,
+Di, A, oe_used, Df, R,
+ts_Di_lock, ts_oe_start, ts_Df_lock, oe_time_seconds
 ```
+
+- `ts_oe_start` and `oe_time_seconds` must be empty when `oe_used = No`,
+  populated otherwise.
+- `ts_Di_lock` and `ts_Df_lock` are always populated.
 
 Download a template (3 example rows) from the upload page, or grab
-`public/sample_data.csv` (3,000 synthetic rows).
+`public/sample_data.csv` (3,000 synthetic rows). For multi-source studies,
+the companion Google Sheet pack (OE Responses, Physician Roster, Question
+Bank, Joined Export) produces an upload-ready CSV via one download.
 
 ## Local development
 
