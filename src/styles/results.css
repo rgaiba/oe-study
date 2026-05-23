@@ -227,6 +227,93 @@
   line-height: 1.6;
 }
 
+/* ── Accuracy sub-section dividers ───────────────────────────────────── */
+.accuracy-sub-header {
+  margin-top: var(--space-5);
+  margin-bottom: var(--space-3);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--navy);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.accuracy-sub-header:first-child { margin-top: 0; }
+
+/* ── McNemar table ───────────────────────────────────────────────────── */
+.mcnemar-card { overflow-x: auto; }
+.mcnemar-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--txt-2);
+  margin-bottom: var(--space-2);
+}
+.mcnemar-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.mcnemar-table th, .mcnemar-table td {
+  padding: 7px 9px;
+  border: 1px solid var(--border-soft);
+  text-align: center;
+  vertical-align: middle;
+}
+.mcnemar-table thead th {
+  background: var(--surface-2);
+  font-weight: 700;
+  font-size: 11.5px;
+  color: var(--txt);
+  letter-spacing: 0.02em;
+}
+.mcnemar-table th.row-hdr, .mcnemar-table td.row-hdr {
+  text-align: left;
+  font-weight: 600;
+  background: var(--surface-2);
+  font-size: 12px;
+}
+.mcnemar-table td.row-hdr .row-sub {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--txt-3);
+  font-feature-settings: "tnum" 1;
+}
+.mcnemar-table td.stream-cell {
+  text-align: left;
+  font-size: 11.5px;
+  color: var(--txt-2);
+  font-family: var(--font-mono);
+}
+.mcnemar-table td.num {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1;
+}
+.mcnemar-table td.num.pos { background: #eaf3de; color: #173404; }
+.mcnemar-table td.num.neg { background: #fcebeb; color: #501313; }
+.mcnemar-table td.num.strong { font-weight: 700; }
+.mcnemar-table tr.row-final td { border-top: 1px solid var(--border-soft); }
+.mcnemar-legend {
+  display: flex; flex-wrap: wrap; gap: 14px;
+  margin-top: var(--space-3);
+  font-size: 11.5px;
+  color: var(--txt-2);
+}
+.mcnemar-legend .dot {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 2px;
+  margin-right: 6px;
+  vertical-align: middle;
+  border: 1px solid rgba(0,0,0,0.1);
+}
+.mcnemar-legend .dot.pos { background: #eaf3de; }
+.mcnemar-legend .dot.neg { background: #fcebeb; }
+
+/* ── Lift bars wrapper ───────────────────────────────────────────────── */
+.lift-wrap { overflow-x: auto; }
+
 /* ── Outcome eyebrow (PRIMARY / SECONDARY OUTCOME chips) ─────────────── */
 .outcome-eyebrow {
   font-size: 10.5px;

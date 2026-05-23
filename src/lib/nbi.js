@@ -312,6 +312,166 @@ export function aucBreakdown(rows, experienceLevels) {
   return out
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  Top-1 accuracy + paired McNemar + Δ-accuracy lift
+//
+//  Three sub-sections of the secondary "accuracy" panel. These are intended
+//  to replace the AUROC reduction with metrics that are directly meaningful
+//  for a 5-way categorical task and a paired-by-question study design.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Top-1 accuracy with Wilson 95% CI for a row collection and stream getter. */
+export function accuracy(rows, getPred) {
+  let n = 0, k = 0
+  for (const r of rows) {
+    n += 1
+    if (getPred(r) === r.R) k += 1
+  }
+  if (n === 0) return { n: 0, k: 0, p: null, ci: null }
+  const p = k / n
+  const ci = wilsonCI(k, n)
+  return { n, k, p, ci }
+}
+
+/** Convenience: accuracy per stratum × stream + AI baseline. Same shape as aucBreakdown. */
+export function accuracyBreakdown(rows, experienceLevels) {
+  const out = {
+    AI: { label: 'OpenEvidence (A)', ...accuracy(rows, STREAM.A) },
+    strata: [],
+  }
+  for (const exp of experienceLevels) {
+    const stratumRows = rows.filter(r => r.physician_experience === exp)
+    out.strata.push({
+      experience: exp,
+      n: stratumRows.length,
+      Di:    accuracy(stratumRows, STREAM.Di),
+      Final: accuracy(stratumRows, STREAM.Final),
+    })
+  }
+  return out
+}
+
+/**
+ * Paired McNemar comparison vs the AI baseline on the SAME questions.
+ * Each row contributes one pair: (physician_correct, AI_correct).
+ *
+ * 2×2 disagreement table:
+ *           AI correct   AI wrong
+ *   P corr     a            b      (physician right, AI right) | (physician right, AI wrong)
+ *   P wrong    c            d      (physician wrong, AI right) | (physician wrong, AI wrong)
+ *
+ * - b = cases where physician beat AI
+ * - c = cases where AI beat physician
+ * - OR = b / c (continuity-corrected when either is 0)
+ * - Two-sided exact mid-p value (binomial on b out of b+c with p=0.5).
+ *
+ * Skip pairs with non-A–E values (degenerate rows).
+ */
+export function mcnemarVsAI(rows, getPred) {
+  let a = 0, b = 0, c = 0, d = 0
+  for (const r of rows) {
+    const pCorrect = getPred(r) === r.R
+    const aCorrect = r.A === r.R
+    if (pCorrect && aCorrect) a += 1
+    else if (pCorrect && !aCorrect) b += 1
+    else if (!pCorrect && aCorrect) c += 1
+    else d += 1
+  }
+  const n = a + b + c + d
+  if (n === 0) return { a: 0, b: 0, c: 0, d: 0, n: 0, or: null, p: null, discordant: 0 }
+
+  const discordant = b + c
+  // Odds ratio with Haldane–Anscombe 0.5 correction when either cell is 0.
+  let or = null
+  if (b > 0 && c > 0) or = b / c
+  else if (discordant > 0) or = (b + 0.5) / (c + 0.5)
+
+  // Two-sided exact mid-p: P(X ≤ min(b,c)) under Binomial(b+c, 0.5), doubled,
+  // minus half the point mass at the observed value (mid-p adjustment).
+  let p = null
+  if (discordant > 0) {
+    const k = Math.min(b, c)
+    const n2 = discordant
+    // Iterative log-space binomial CDF to stay stable for large n2.
+    const logBin = (n, x) => {
+      let s = 0
+      for (let i = 1; i <= x; i++) s += Math.log(n - i + 1) - Math.log(i)
+      return s
+    }
+    let cdf = 0
+    let pmf_at_k = 0
+    const log05_n = n2 * Math.log(0.5)
+    for (let x = 0; x <= k; x++) {
+      const pmf = Math.exp(logBin(n2, x) + log05_n)
+      cdf += pmf
+      if (x === k) pmf_at_k = pmf
+    }
+    const midP = 2 * cdf - pmf_at_k
+    p = Math.min(1, Math.max(0, midP))
+  }
+
+  return { a, b, c, d, n, discordant, or, p }
+}
+
+/** Convenience: McNemar (Di vs AI) and (Final vs AI) per stratum. */
+export function mcnemarBreakdown(rows, experienceLevels) {
+  return experienceLevels.map(exp => {
+    const stratumRows = rows.filter(r => r.physician_experience === exp)
+    return {
+      experience: exp,
+      n: stratumRows.length,
+      Di:    mcnemarVsAI(stratumRows, STREAM.Di),
+      Final: mcnemarVsAI(stratumRows, STREAM.Final),
+    }
+  })
+}
+
+/**
+ * Δ-accuracy (Final − Initial) per stratum, split by whether AI was used.
+ * The "lift" is the per-row change Final_correct - Di_correct. Each row
+ * contributes one of {+1, 0, -1} (Wrong→Right, Unchanged, Right→Wrong).
+ * Mean Δ ≈ (# improved − # worsened) / n. 95% CI by normal-approx on the
+ * mean of these ±1/0 outcomes.
+ *
+ * Stratified by oe_used so a reader can see how much of any lift is
+ * attributable to consultation vs other factors.
+ */
+function deltaAccuracy(rows) {
+  let n = 0, sum = 0, sumSq = 0
+  for (const r of rows) {
+    const di = r.Di === r.R ? 1 : 0
+    const final = (r.oe_used === 'Yes' ? r.Df : r.F) === r.R ? 1 : 0
+    const delta = final - di
+    n += 1
+    sum += delta
+    sumSq += delta * delta
+  }
+  if (n === 0) return { n: 0, mean: null, ci: null }
+  const mean = sum / n
+  if (n < 2) return { n, mean, ci: null }
+  const variance = (sumSq - n * mean * mean) / (n - 1)
+  const se = Math.sqrt(variance / n)
+  return {
+    n,
+    mean,
+    ci: { lo: mean - 1.959964 * se, hi: mean + 1.959964 * se },
+  }
+}
+
+/** Lift breakdown: per stratum, overall Δ and Δ split by AI use. */
+export function liftBreakdown(rows, experienceLevels) {
+  return experienceLevels.map(exp => {
+    const stratumRows = rows.filter(r => r.physician_experience === exp)
+    return {
+      experience: exp,
+      n: stratumRows.length,
+      overall:    deltaAccuracy(stratumRows),
+      aiUsed:     deltaAccuracy(stratumRows.filter(r => r.oe_used === 'Yes')),
+      aiDeclined: deltaAccuracy(stratumRows.filter(r => r.oe_used === 'No')),
+    }
+  })
+}
+
 /** Display formatters. */
 export function formatMetric(metric, value) {
   if (value === null || value === undefined || Number.isNaN(value)) return 'n/a'

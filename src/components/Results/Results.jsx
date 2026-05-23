@@ -3,7 +3,7 @@ import { useStudy } from '../../context/StudyContext.jsx'
 import { filterRows } from '../../lib/nbi.js'
 import StrataFilters from './StrataFilters.jsx'
 import AiUseHeatmap from './AiUseHeatmap.jsx'
-import AurocPanel from './AurocPanel.jsx'
+import AccuracyPanel from './AccuracyPanel.jsx'
 import NbiPanel from './NbiPanel.jsx'
 
 export default function Results() {
@@ -78,20 +78,20 @@ export default function Results() {
           </section>
 
           {/* ── Secondary outcome 2 ─────────────────────────────────────── */}
-          <section className="panel" aria-labelledby="panel-auroc-title">
+          <section className="panel" aria-labelledby="panel-accuracy-title">
             <div className="panel-header">
               <div>
                 <div className="outcome-eyebrow secondary"><span className="pip" aria-hidden="true" />Secondary outcome · 2</div>
-                <h2 className="panel-title" id="panel-auroc-title">Diagnostic accuracy: physicians vs OpenEvidence (AUROC)</h2>
+                <h2 className="panel-title" id="panel-accuracy-title">Diagnostic accuracy: physicians vs OpenEvidence</h2>
                 <p className="panel-subtitle">
-                  Macro one-vs-rest AUROC over the five answer classes for each
-                  physician stratum (initial and final answers), compared against
-                  the OpenEvidence baseline. 95% bootstrap confidence intervals.
+                  Three views of the same comparison: top-1 accuracy with Wilson
+                  CIs, a paired McNemar test on the same questions, and the
+                  Δ-accuracy lift from voluntary AI consultation.
                 </p>
               </div>
               <div className="panel-n">N = <strong>{visible.length.toLocaleString()}</strong> rows</div>
             </div>
-            <AurocPanel rows={visible} />
+            <AccuracyPanel rows={visible} />
           </section>
         </div>
       </div>
