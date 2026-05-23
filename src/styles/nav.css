@@ -1,0 +1,77 @@
+/* =============================================================================
+   NAV — ported from nbi-framework with OE wordmark.
+============================================================================= */
+.nav {
+  position: sticky; top: 0; z-index: 30;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: saturate(140%) blur(12px);
+  -webkit-backdrop-filter: saturate(140%) blur(12px);
+  border-bottom: 1px solid var(--border-soft);
+}
+.nav-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  height: var(--nav-h); gap: 12px;
+}
+.nav-brand {
+  display: inline-flex; align-items: center; gap: 12px;
+  background: none; padding: 6px 8px; border-radius: var(--radius);
+  cursor: pointer;
+}
+.nav-brand:hover { background: var(--surface-2); }
+.nav-mark {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--txt-inv);
+  background: var(--navy);
+  padding: 4px 9px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.nav-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+.nav-wordmark {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--txt);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.nav-tabs {
+  display: flex; gap: 4px;
+  background: var(--surface-2);
+  padding: 3px;
+  border-radius: var(--radius);
+  flex-shrink: 0;
+}
+.nav-tab {
+  padding: 6px 14px;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--txt-2);
+  background: transparent;
+  border-radius: 5px;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.nav-tab:hover { color: var(--navy); }
+.nav-tab.is-active {
+  background: white;
+  color: var(--navy);
+  box-shadow: var(--shadow-sm);
+}
+.nav-tab[disabled] { opacity: 0.45; cursor: not-allowed; }
+.nav-tab[disabled]:hover { color: var(--txt-2); background: transparent; }
+
+@media (max-width: 540px) {
+  .nav-wordmark, .nav-divider { display: none; }
+  .nav-tab { padding: 6px 10px; font-size: 12px; }
+  .nav-mark { font-size: 12px; padding: 3px 8px; }
+}
