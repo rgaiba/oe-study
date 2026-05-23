@@ -166,40 +166,57 @@
   border: 1px solid var(--border-soft);
 }
 
-/* ── Accuracy bar chart (Panel 4b) ───────────────────────────────────── */
-.accuracy-wrap { overflow-x: auto; }
-.accuracy-svg { display: block; font-family: var(--font-sans); }
-.accuracy-axis-label {
+/* ── AUROC forest plot (secondary outcome 2) ─────────────────────────── */
+.auroc-wrap { overflow-x: auto; }
+.auroc-svg { display: block; font-family: var(--font-sans); }
+.auroc-axis-label {
   font-size: 11px;
-  fill: var(--txt-2);
+  fill: var(--txt-3);
+  font-feature-settings: "tnum" 1;
 }
-.accuracy-group-label {
-  font-size: 11.5px;
+.auroc-axis-title {
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--txt-2);
+  letter-spacing: 0.02em;
+}
+.auroc-row-label {
+  font-size: 12.5px;
   font-weight: 600;
   fill: var(--txt);
 }
-.accuracy-bar-label {
-  font-family: var(--font-mono);
+.auroc-row-sub {
   font-size: 10.5px;
-  font-weight: 600;
+  fill: var(--txt-3);
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1;
+}
+.auroc-value-text {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
   fill: var(--txt);
   font-feature-settings: "tnum" 1;
 }
-.accuracy-legend {
+.auroc-value-ci {
+  font-weight: 500;
+  fill: var(--txt-3);
+}
+.auroc-legend {
   display: flex; flex-wrap: wrap; gap: 14px;
   margin-top: var(--space-3);
   font-size: 12px;
   color: var(--txt-2);
 }
-.accuracy-legend-item {
+.auroc-legend-item {
   display: inline-flex; align-items: center; gap: 6px;
 }
-.accuracy-legend-swatch {
+.auroc-legend-swatch {
   width: 12px; height: 12px;
   border-radius: 2px;
   border: 1px solid rgba(0,0,0,0.1);
 }
-.accuracy-note {
+.auroc-note {
   margin-top: var(--space-3);
   padding: 10px 12px;
   background: var(--surface-2);
@@ -207,8 +224,29 @@
   border-radius: 0 4px 4px 0;
   font-size: 12px;
   color: var(--txt-2);
-  line-height: 1.55;
+  line-height: 1.6;
 }
+
+/* ── Outcome eyebrow (PRIMARY / SECONDARY OUTCOME chips) ─────────────── */
+.outcome-eyebrow {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.outcome-eyebrow .pip {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.outcome-eyebrow.primary   { color: var(--navy); }
+.outcome-eyebrow.primary   .pip { background: var(--navy); }
+.outcome-eyebrow.secondary { color: var(--txt-3); }
+.outcome-eyebrow.secondary .pip { background: var(--txt-3); }
 
 /* ── NBI Panel (4c) ──────────────────────────────────────────────────── */
 .nbi-panel-grid {

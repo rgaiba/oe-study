@@ -3,7 +3,7 @@ import { useStudy } from '../../context/StudyContext.jsx'
 import { filterRows } from '../../lib/nbi.js'
 import StrataFilters from './StrataFilters.jsx'
 import AiUseHeatmap from './AiUseHeatmap.jsx'
-import AccuracyChart from './AccuracyChart.jsx'
+import AurocPanel from './AurocPanel.jsx'
 import NbiPanel from './NbiPanel.jsx'
 
 export default function Results() {
@@ -25,10 +25,11 @@ export default function Results() {
       <h1 className="page-title">Study results</h1>
       <p className="page-subtitle">
         Source: <code className="formula">{filename || 'uploaded CSV'}</code>.
-        Three panels: AI use rate by stratum, accuracy by decision stream, and the
-        Net Beneficial Influence breakdown on voluntary AI-use cases. Use the
-        sidebar to filter by reader experience and question uncertainty — all
-        panels recompute together.
+        Primary outcome is the Net Beneficial Influence of voluntary AI use;
+        secondary outcomes are the AI use rate by stratum and the diagnostic
+        accuracy of each reader stratum versus OpenEvidence. Use the sidebar
+        to filter by reader experience and question uncertainty — all panels
+        recompute together.
       </p>
 
       <div className="results-layout">
@@ -42,14 +43,33 @@ export default function Results() {
         />
 
         <div className="panels">
-          <section className="panel" aria-labelledby="panel-4a-title">
+          {/* ── Primary outcome ─────────────────────────────────────────── */}
+          <section className="panel" aria-labelledby="panel-nbi-title">
             <div className="panel-header">
               <div>
-                <div className="panel-eyebrow">Panel 4a</div>
-                <h2 className="panel-title" id="panel-4a-title">AI use rate</h2>
+                <div className="outcome-eyebrow primary"><span className="pip" aria-hidden="true" />Primary outcome</div>
+                <h2 className="panel-title" id="panel-nbi-title">Net Beneficial Influence (AI-used cases)</h2>
+                <p className="panel-subtitle">
+                  Adjudication of Di vs Df vs R on voluntary AI-use cases. NBI is
+                  the headline value with four supporting metrics; all
+                  denominators use <code className="formula">N<sub>oe_used</sub></code>.
+                </p>
+              </div>
+              <div className="panel-n">N<sub>oe_used</sub> = <strong>{nOeUsed.toLocaleString()}</strong></div>
+            </div>
+            <NbiPanel rows={visible} />
+          </section>
+
+          {/* ── Secondary outcome 1 ─────────────────────────────────────── */}
+          <section className="panel" aria-labelledby="panel-ai-use-title">
+            <div className="panel-header">
+              <div>
+                <div className="outcome-eyebrow secondary"><span className="pip" aria-hidden="true" />Secondary outcome · 1</div>
+                <h2 className="panel-title" id="panel-ai-use-title">AI use rate</h2>
                 <p className="panel-subtitle">
                   Share of questions on which the physician chose to consult
-                  OpenEvidence, broken out by experience (rows) and uncertainty (columns).
+                  OpenEvidence, broken out by reader experience (rows) and
+                  question uncertainty (columns).
                 </p>
               </div>
               <div className="panel-n">N = <strong>{visible.length.toLocaleString()}</strong> rows</div>
@@ -57,35 +77,21 @@ export default function Results() {
             <AiUseHeatmap rows={visible} />
           </section>
 
-          <section className="panel" aria-labelledby="panel-4b-title">
+          {/* ── Secondary outcome 2 ─────────────────────────────────────── */}
+          <section className="panel" aria-labelledby="panel-auroc-title">
             <div className="panel-header">
               <div>
-                <div className="panel-eyebrow">Panel 4b</div>
-                <h2 className="panel-title" id="panel-4b-title">Effect of voluntary AI use on accuracy</h2>
+                <div className="outcome-eyebrow secondary"><span className="pip" aria-hidden="true" />Secondary outcome · 2</div>
+                <h2 className="panel-title" id="panel-auroc-title">Diagnostic accuracy: physicians vs OpenEvidence (AUROC)</h2>
                 <p className="panel-subtitle">
-                  Three decision streams: initial decision (Di, all rows), final
-                  with AI (Df, AI-used only), final without AI (F, AI-declined only).
+                  Macro one-vs-rest AUROC over the five answer classes for each
+                  physician stratum (initial and final answers), compared against
+                  the OpenEvidence baseline. 95% bootstrap confidence intervals.
                 </p>
               </div>
               <div className="panel-n">N = <strong>{visible.length.toLocaleString()}</strong> rows</div>
             </div>
-            <AccuracyChart rows={visible} />
-          </section>
-
-          <section className="panel" aria-labelledby="panel-4c-title">
-            <div className="panel-header">
-              <div>
-                <div className="panel-eyebrow">Panel 4c</div>
-                <h2 className="panel-title" id="panel-4c-title">Net influence breakdown (AI-used cases only)</h2>
-                <p className="panel-subtitle">
-                  Adjudication matrix on Di vs Df vs R, the Net Beneficial Influence
-                  hero, and four supporting metrics. All denominators use{' '}
-                  <code className="formula">N<sub>oe_used</sub></code>.
-                </p>
-              </div>
-              <div className="panel-n">N<sub>oe_used</sub> = <strong>{nOeUsed.toLocaleString()}</strong></div>
-            </div>
-            <NbiPanel rows={visible} />
+            <AurocPanel rows={visible} />
           </section>
         </div>
       </div>

@@ -181,6 +181,137 @@ export function accuracyByUncertainty(rows, uncertaintyLevels) {
   return out
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  AUROC for hard categorical predictions (5-way: A B C D E)
+//
+//  For each class c, treat the 5-way problem as a one-vs-rest binary task.
+//  The "predictor" is the hard pick (1 if predicted == c, else 0). With a
+//  binary score the ROC has just three vertices: (0,0), (FPR_c, TPR_c), (1,1).
+//  Trapezoidal AUC then reduces algebraically to balanced accuracy:
+//    AUC_c = (sensitivity_c + specificity_c) / 2
+//  Macro-AUROC averages AUC_c across all five classes (Macy & Hand 2001).
+//
+//  This is not a fully discriminative AUROC — there is no probabilistic
+//  output to threshold — but it is the standard AUROC reduction used in
+//  medical AI papers when raters provide categorical (rather than continuous)
+//  predictions, and it stays comparable across raters and AI.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CLASSES = ['A', 'B', 'C', 'D', 'E']
+
+/** Per-class one-vs-rest AUC. `getPred(row)` returns the predicted A–E. */
+export function perClassAuc(rows, getPred) {
+  return CLASSES.map(c => {
+    let tp = 0, fn = 0, fp = 0, tn = 0
+    for (const r of rows) {
+      const truth = r.R === c
+      const pred = getPred(r) === c
+      if (truth && pred) tp++
+      else if (truth && !pred) fn++
+      else if (!truth && pred) fp++
+      else tn++
+    }
+    const tpr = tp + fn > 0 ? tp / (tp + fn) : null
+    const fpr = fp + tn > 0 ? fp / (fp + tn) : null
+    if (tpr === null || fpr === null) return null
+    return (tpr + (1 - fpr)) / 2
+  })
+}
+
+/** Macro-averaged AUROC across the five answer classes. */
+export function macroAuc(rows, getPred) {
+  const aucs = perClassAuc(rows, getPred).filter(a => a !== null)
+  if (aucs.length === 0) return null
+  return aucs.reduce((s, a) => s + a, 0) / aucs.length
+}
+
+/** Per-row sensitivity/specificity for class c (for an ROC overlay if needed). */
+export function perClassRates(rows, getPred) {
+  return CLASSES.map(c => {
+    let tp = 0, fn = 0, fp = 0, tn = 0
+    for (const r of rows) {
+      const truth = r.R === c
+      const pred = getPred(r) === c
+      if (truth && pred) tp++
+      else if (truth && !pred) fn++
+      else if (!truth && pred) fp++
+      else tn++
+    }
+    const tpr = tp + fn > 0 ? tp / (tp + fn) : null
+    const fpr = fp + tn > 0 ? fp / (fp + tn) : null
+    return { class: c, tpr, fpr, n: tp + fn }
+  })
+}
+
+// Mulberry32 — same generator the sample-data script uses. Seeded so the
+// bootstrap CI is stable across renders (otherwise CI endpoints jitter on
+// every filter change, which looks like a bug to a reader).
+function makeRng(seed) {
+  let s = seed >>> 0
+  return () => {
+    s = (s + 0x6D2B79F5) >>> 0
+    let t = s
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+/**
+ * Percentile bootstrap 95% CI for macro-AUROC. Resamples rows with replacement
+ * (row-level, no clustering correction — same convention as most medical-AI
+ * accuracy comparisons; conservative when there is within-physician dependence).
+ * Default B=500 keeps the panel responsive on the full 3,000-row sample.
+ */
+export function bootstrapAucCI(rows, getPred, B = 500, seed = 20260523) {
+  const n = rows.length
+  if (n === 0) return null
+  const rng = makeRng(seed)
+  const aucs = []
+  const sample = new Array(n)
+  for (let b = 0; b < B; b++) {
+    for (let i = 0; i < n; i++) sample[i] = rows[Math.floor(rng() * n)]
+    const auc = macroAuc(sample, getPred)
+    if (auc !== null) aucs.push(auc)
+  }
+  if (aucs.length === 0) return null
+  aucs.sort((a, b) => a - b)
+  return {
+    lo: aucs[Math.floor(0.025 * aucs.length)],
+    hi: aucs[Math.floor(0.975 * aucs.length)],
+  }
+}
+
+/** Row-level getters for the three prediction streams. */
+export const STREAM = {
+  Di:    r => r.Di,
+  Final: r => (r.oe_used === 'Yes' ? r.Df : r.F),
+  A:     r => r.A,
+}
+
+/** Convenience: compute AUROC + CI for each stratum × stream + AI baseline. */
+export function aucBreakdown(rows, experienceLevels) {
+  const out = {
+    AI: {
+      label: 'OpenEvidence (A)',
+      auc: macroAuc(rows, STREAM.A),
+      ci: bootstrapAucCI(rows, STREAM.A),
+      n: rows.length,
+    },
+    strata: [],
+  }
+  for (const exp of experienceLevels) {
+    const stratumRows = rows.filter(r => r.physician_experience === exp)
+    out.strata.push({
+      experience: exp,
+      n: stratumRows.length,
+      Di:    { auc: macroAuc(stratumRows, STREAM.Di),    ci: bootstrapAucCI(stratumRows, STREAM.Di) },
+      Final: { auc: macroAuc(stratumRows, STREAM.Final), ci: bootstrapAucCI(stratumRows, STREAM.Final) },
+    })
+  }
+  return out
+}
+
 /** Display formatters. */
 export function formatMetric(metric, value) {
   if (value === null || value === undefined || Number.isNaN(value)) return 'n/a'
