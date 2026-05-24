@@ -20,7 +20,11 @@ import { fileURLToPath } from 'node:url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
-const OUT_PATH = join(__dirname, '..', 'public', 'sample_data.csv')
+const PUBLIC_DIR = join(__dirname, '..', 'public')
+const OUT_JOINED    = join(PUBLIC_DIR, 'sample_data.csv')
+const OUT_RESPONSES = join(PUBLIC_DIR, 'sample_responses.csv')
+const OUT_ROSTER    = join(PUBLIC_DIR, 'sample_roster.csv')
+const OUT_QBANK     = join(PUBLIC_DIR, 'sample_qbank.csv')
 
 const ANSWERS = ['A', 'B', 'C', 'D', 'E']
 
@@ -146,17 +150,11 @@ function generate() {
   const qs = questions()
   const diDist = Object.fromEntries(qs.map(q => [q.id, diDistFor(q.R)]))
 
-  // Schema v2: 13 columns. F and ts_F_lock dropped. Df populated on every row.
-  const HEADERS = [
-    'physician_id','physician_experience','question_id','question_uncertainty',
-    'Di','A','oe_used','Df','R',
-    'ts_Di_lock','ts_oe_start','ts_Df_lock','oe_time_seconds'
-  ]
-  const lines = [HEADERS.join(',')]
-
   // Anchor session timestamps to a fixed date so output is deterministic.
   const baseDate = new Date(Date.UTC(2026, 4, 15, 13, 0, 0)) // 2026-05-15T13:00:00Z
 
+  // Build the per-row records first; emit the four CSVs from that single list.
+  const records = []
   for (let pi = 0; pi < phys.length; pi++) {
     const p = phys[pi]
     const order = shuffled(qs)
@@ -167,7 +165,6 @@ function generate() {
       const Di = sampleFromDist(diDist[q.id])
       const useOE = rand() < optInProb(p.experience, q.uncertainty)
 
-      // Timing.
       t = new Date(t.getTime() + (15 + Math.round(rand() * 30)) * 1000)
       const tsDiLock = new Date(t)
 
@@ -181,46 +178,78 @@ function generate() {
         tsDfLock = new Date(t)
 
         if (Di !== q.R) {
-          // Initially wrong: 60% B (Df=R), 40% IR (Df=Di).
           Df = rand() < 0.60 ? q.R : Di
         } else {
-          // Initially right: 85% AR (Df=Di), 15% H (Df = random other).
           Df = rand() < 0.85 ? Di : otherThan(Di)
         }
       } else {
-        // No AI consultation. Physician still commits a final answer; usually
-        // it mirrors Di — 92% Df=Di, 8% Df flips to a random other answer.
         t = new Date(t.getTime() + (5 + Math.round(rand() * 20)) * 1000)
         tsDfLock = new Date(t)
         Df = rand() < 0.92 ? Di : otherThan(Di)
       }
 
-      // Small gap before next question.
       t = new Date(t.getTime() + (3 + Math.round(rand() * 10)) * 1000)
 
-      lines.push([
-        p.id,
-        p.experience,
-        q.id,
-        q.uncertainty,
-        Di,
-        q.A,
-        useOE ? 'Yes' : 'No',
-        Df,
-        q.R,
-        isoUtc(tsDiLock),
-        tsOeStart ? isoUtc(tsOeStart) : '',
-        isoUtc(tsDfLock),
-        oeSeconds === null ? '' : oeSeconds,
-      ].join(','))
+      records.push({
+        physician_id: p.id,
+        physician_experience: p.experience,
+        question_id: q.id,
+        question_uncertainty: q.uncertainty,
+        Di, A: q.A, oe_used: useOE ? 'Yes' : 'No', Df, R: q.R,
+        ts_Di_lock: isoUtc(tsDiLock),
+        ts_oe_start: tsOeStart ? isoUtc(tsOeStart) : '',
+        ts_Df_lock: isoUtc(tsDfLock),
+        oe_time_seconds: oeSeconds === null ? '' : String(oeSeconds),
+      })
     }
   }
 
-  return lines.join('\n') + '\n'
+  // 1) Joined CSV (single-CSV fallback path) — 13 columns.
+  const joinedHeaders = [
+    'physician_id','physician_experience','question_id','question_uncertainty',
+    'Di','A','oe_used','Df','R',
+    'ts_Di_lock','ts_oe_start','ts_Df_lock','oe_time_seconds',
+  ]
+  const joinedLines = [joinedHeaders.join(',')]
+  for (const r of records) {
+    joinedLines.push(joinedHeaders.map(h => r[h]).join(','))
+  }
+
+  // 2) OE Responses CSV (vendor-facing) — 10 columns, no strata, no R.
+  const respHeaders = [
+    'physician_id','question_id','Di','A','oe_used','Df',
+    'ts_Di_lock','ts_oe_start','ts_Df_lock','oe_time_seconds',
+  ]
+  const respLines = [respHeaders.join(',')]
+  for (const r of records) {
+    respLines.push(respHeaders.map(h => r[h]).join(','))
+  }
+
+  // 3) Physician Roster (study team) — one row per physician.
+  const rosterLines = ['physician_id,physician_experience']
+  for (const p of phys) rosterLines.push(`${p.id},${p.experience}`)
+
+  // 4) Question Bank (study team) — one row per question.
+  const qbankLines = ['question_id,question_uncertainty,R']
+  for (const q of qs) qbankLines.push(`${q.id},${q.uncertainty},${q.R}`)
+
+  return {
+    joined: joinedLines.join('\n') + '\n',
+    responses: respLines.join('\n') + '\n',
+    roster: rosterLines.join('\n') + '\n',
+    qbank: qbankLines.join('\n') + '\n',
+    counts: { responses: records.length, roster: phys.length, qbank: qs.length },
+  }
 }
 
-const csv = generate()
-mkdirSync(dirname(OUT_PATH), { recursive: true })
-writeFileSync(OUT_PATH, csv)
-const rowCount = csv.split('\n').length - 2 // header + trailing newline
-console.log(`wrote ${OUT_PATH} (${rowCount.toLocaleString()} data rows)`)
+const out = generate()
+mkdirSync(PUBLIC_DIR, { recursive: true })
+writeFileSync(OUT_JOINED, out.joined)
+writeFileSync(OUT_RESPONSES, out.responses)
+writeFileSync(OUT_ROSTER, out.roster)
+writeFileSync(OUT_QBANK, out.qbank)
+console.log(`wrote sample CSVs (deterministic, seeded):`)
+console.log(`  ${OUT_JOINED}     (${out.counts.responses.toLocaleString()} rows, joined 13-col)`)
+console.log(`  ${OUT_RESPONSES}  (${out.counts.responses.toLocaleString()} rows, OE export 10-col)`)
+console.log(`  ${OUT_ROSTER}     (${out.counts.roster} rows)`)
+console.log(`  ${OUT_QBANK}      (${out.counts.qbank} rows)`)

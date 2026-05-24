@@ -140,3 +140,201 @@
 .upload-side .schema-list dd {
   margin: 0; color: var(--txt-2);
 }
+
+/* =============================================================================
+   THREE-SOURCE MODE
+============================================================================= */
+
+/* ── Mode tab strip ──────────────────────────────────────────────────────── */
+.upload-mode-tabs {
+  display: inline-flex;
+  gap: 4px;
+  background: var(--surface-2);
+  padding: 3px;
+  border-radius: var(--radius);
+  margin-bottom: var(--space-5);
+}
+.upload-mode-tab {
+  padding: 8px 16px;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--txt-2);
+  border-radius: 5px;
+  white-space: nowrap;
+  background: transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.upload-mode-tab:hover { color: var(--navy); }
+.upload-mode-tab.is-active {
+  background: white;
+  color: var(--navy);
+  box-shadow: var(--shadow-sm);
+  font-weight: 600;
+}
+
+/* ── Three-source grid ───────────────────────────────────────────────────── */
+.three-sources-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(16px, 2vw, 24px);
+}
+@media (min-width: 920px) {
+  .three-sources-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* ── Individual source card ─────────────────────────────────────────────── */
+.source-card {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: clamp(16px, 2vw, 22px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 280px;
+}
+.source-card.is-loaded {
+  border-color: var(--green-bd);
+  background: linear-gradient(180deg, var(--green-bg) 0%, var(--surface) 60%);
+}
+.source-card-header { display: flex; flex-direction: column; gap: 4px; }
+.source-card-eyebrow {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+.source-card-title {
+  font-family: var(--font-serif);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+.source-card-sub {
+  font-size: 12px;
+  color: var(--txt-2);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Inner dropzone styled tighter than the single-CSV one. */
+.source-card-zone {
+  min-height: 150px;
+  padding: clamp(16px, 2vw, 22px);
+  gap: 8px;
+}
+.source-card-zone-title {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  font-size: var(--fs-base);
+  color: var(--txt);
+}
+.source-card-zone .dropzone-icon { font-size: 28px; }
+.source-card-zone .dropzone-actions { margin-top: 4px; }
+
+.source-card-status { margin-top: 4px; }
+
+/* Loaded-state body */
+.source-card-loaded {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 12px;
+  background: white;
+  border: 1px solid var(--green-bd);
+  border-radius: var(--radius);
+  margin-top: auto;
+}
+.source-card-check {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: var(--green);
+  color: white;
+  font-weight: 700;
+  font-size: 18px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.source-card-loaded-body { flex: 1; min-width: 0; }
+.source-card-loaded-filename {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--txt);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.source-card-loaded-rows {
+  font-size: 11.5px;
+  color: var(--txt-2);
+  margin-top: 2px;
+}
+
+/* ── Combine action bar ──────────────────────────────────────────────────── */
+.combine-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-soft);
+}
+.combine-bar-left {
+  display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap;
+}
+.combine-bar-error {
+  font-size: 12px;
+  color: var(--red);
+  font-weight: 500;
+}
+.combine-bar-right { display: flex; gap: var(--space-3); }
+.combine-bar .btn-primary { padding: 12px 22px; font-size: var(--fs-base); }
+
+/* ── Join status block ───────────────────────────────────────────────────── */
+.join-status {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-soft);
+  background: var(--surface);
+}
+.join-status.is-ok    { border-color: var(--green-bd); background: var(--green-bg); }
+.join-status.is-error { border-color: var(--red-bd);   background: var(--red-bg); }
+.join-status-hdr {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: var(--space-3);
+}
+.join-status.is-ok    .join-status-hdr { color: var(--green); }
+.join-status.is-error .join-status-hdr { color: var(--red); }
+.join-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-3);
+}
+.join-status-grid > div {
+  background: white;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.join-status-grid .num {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  color: var(--txt);
+  font-feature-settings: "tnum" 1;
+  line-height: 1.1;
+}
+.join-status-grid .lbl {
+  font-size: 11px;
+  color: var(--txt-2);
+}
+.join-status-grid .lbl.muted { color: var(--txt-3); font-style: italic; }

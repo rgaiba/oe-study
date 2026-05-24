@@ -44,12 +44,32 @@ voluntary consultation is adjudicated. Denominator for all metrics is
 | EIR | `H / (H + AR) × 100` | Wilson 95% |
 | DIR | `(B + H) / N_oe_used × 100` | Wilson 95% |
 
-## CSV schema (v2)
+## Data architecture (v3)
 
-All 13 columns required (any order). Answer fields (`Di`, `A`, `Df`, `R`) must
-be a single character `A`–`E` and populated on every row. `Df` is the final
-answer regardless of whether the AI was consulted — `oe_used` flags whether
-consultation actually happened.
+The upload page has **two modes**, both client-side, both ending at the same
+analysis.
+
+### Three sources (recommended)
+
+Three separate CSVs are uploaded; the join happens in the browser. OE never
+sees the strata or the reference standard.
+
+| Source | Owner | Columns |
+|---|---|---|
+| **OE Responses** | OE vendor | `physician_id`, `question_id`, `Di`, `A`, `oe_used`, `Df`, `ts_Di_lock`, `ts_oe_start`, `ts_Df_lock`, `oe_time_seconds` |
+| **Physician Roster** | Study team | `physician_id`, `physician_experience` |
+| **Question Bank** | Study team | `question_id`, `question_uncertainty`, `R` |
+
+Each file is validated against its own schema. Joining catches missing IDs
+and reports them by source-CSV row number. Download per-source templates
+from the upload page, or grab the three sample CSVs (`public/sample_responses.csv`,
+`public/sample_roster.csv`, `public/sample_qbank.csv`).
+
+### Single joined CSV (fallback)
+
+13-column pre-joined schema for users who already have an export with
+experience, uncertainty, and R baked in. Same format the joined output of
+mode 1 produces, so a CSV exported from the analysis is re-uploadable.
 
 ```
 physician_id, physician_experience, question_id, question_uncertainty,
@@ -57,14 +77,12 @@ Di, A, oe_used, Df, R,
 ts_Di_lock, ts_oe_start, ts_Df_lock, oe_time_seconds
 ```
 
-- `ts_oe_start` and `oe_time_seconds` must be empty when `oe_used = No`,
-  populated otherwise.
-- `ts_Di_lock` and `ts_Df_lock` are always populated.
-
-Download a template (3 example rows) from the upload page, or grab
-`public/sample_data.csv` (3,000 synthetic rows). For multi-source studies,
-the companion Google Sheet pack (OE Responses, Physician Roster, Question
-Bank, Joined Export) produces an upload-ready CSV via one download.
+Answer fields (`Di`, `A`, `Df`, `R`) must be `A`–`E` and populated on every
+row. `Df` is the final answer regardless of whether AI was consulted;
+`oe_used` flags whether consultation actually happened. `ts_oe_start` and
+`oe_time_seconds` must be empty when `oe_used = No`; `ts_Di_lock` and
+`ts_Df_lock` are always populated. Sample: `public/sample_data.csv` (3,000
+synthetic rows).
 
 ## Local development
 
@@ -73,7 +91,7 @@ npm install
 npm run dev        # http://localhost:5174
 npm run build      # production build to dist/
 npm run preview    # serve the production build locally
-npm run sample     # regenerate public/sample_data.csv
+npm run sample     # regenerate the 4 sample CSVs (joined + 3 sources)
 ```
 
 Stack: Vite + React 18, self-hosted fonts via `@fontsource`. Zero runtime
